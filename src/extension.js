@@ -77,11 +77,14 @@ function generateBeepWav(freq, duration) {
   return buffer;
 }
 
-function playSound(soundName) {
+function playSound(soundName, volume) {
+  const baseBuf = SOUNDS[soundName] || SOUNDS.default;
+  const vol = Math.max(0, Math.min(1, volume ?? 0.5));
+  const buf = vol === 0.5 ? baseBuf : rescaleWav(baseBuf, vol);
   const tmpFile = path.join(os.tmpdir(), `noice_${soundName}.wav`);
 
   if (!fs.existsSync(tmpFile)) {
-    fs.writeFileSync(tmpFile, SOUNDS[soundName] || SOUNDS.default);
+    fs.writeFileSync(tmpFile, buf);
   }
 
   const platform = process.platform;
@@ -105,6 +108,17 @@ function playSound(soundName) {
   } catch (e) {
     // Silent fail — sound not critical
   }
+}
+
+function rescaleWav(buf, volume) {
+  const header = buf.slice(0, 44);
+  const samples = buf.slice(44);
+  const out = Buffer.alloc(samples.length);
+  for (let i = 0; i < samples.length; i += 2) {
+    const s = samples.readInt16LE(i);
+    out.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(s * volume))), i);
+  }
+  return Buffer.concat([header, out]);
 }
 
 let statusBarItem;
@@ -236,7 +250,11 @@ function activate(context) {
         .getConfiguration('noice')
         .get('failureSound', 'thud');
 
-      playSound(success ? sound : failureSound);
+      const volume = vscode.workspace
+        .getConfiguration('noice')
+        .get('volume', 0.5);
+
+      playSound(success ? sound : failureSound, volume);
 
       const showNotif = vscode.workspace
         .getConfiguration('noice')

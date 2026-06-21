@@ -32,6 +32,13 @@
           "default": 3,
           "description": "Minimum seconds a command must run before playing sound"
         },
+        "noice.volume": {
+          "type": "number",
+          "default": 0.5,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Sound volume (0 = silent, 1 = full). Independent of system volume."
+        },
         "noice.sound": {
           "type": "string",
           "default": "default",
