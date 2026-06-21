@@ -75,6 +75,7 @@ function playSound(soundName) {
 
 let statusBarItem;
 let terminalStartTimes = new Map();
+let windowFocused = vscode.window.state ? vscode.window.state.focused : true;
 let enabled = true;
 
 function activate(context) {
@@ -105,6 +106,12 @@ function activate(context) {
   );
 
   context.subscriptions.push(
+    vscode.window.onDidChangeWindowState(state => {
+      windowFocused = state.focused;
+    })
+  );
+
+  context.subscriptions.push(
     vscode.window.onDidStartTerminalShellExecution(event => {
       if (!enabled) return;
       terminalStartTimes.set(event.terminal, Date.now());
@@ -126,6 +133,12 @@ function activate(context) {
         .get('minDuration', 3);
 
       if (elapsed < minDuration) return;
+
+      const onlyWhenUnfocused = vscode.workspace
+        .getConfiguration('noice')
+        .get('onlyWhenUnfocused', true);
+
+      if (onlyWhenUnfocused && windowFocused) return;
 
       const sound = vscode.workspace
         .getConfiguration('noice')

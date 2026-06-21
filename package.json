@@ -3,7 +3,7 @@
   "displayName": "Noice 🔔",
   "description": "Plays a sound when your terminal task finishes. Toggle on/off from status bar.",
   "version": "1.0.0",
-  "engines": { "vscode": "^1.80.0" },
+  "engines": { "vscode": "^1.87.0" },
   "categories": ["Other"],
   "activationEvents": ["onStartupFinished"],
   "main": "./src/extension.js",
@@ -21,6 +21,11 @@
           "type": "boolean",
           "default": true,
           "description": "Enable sound notifications when terminal tasks finish"
+        },
+        "noice.onlyWhenUnfocused": {
+          "type": "boolean",
+          "default": true,
+          "description": "Only play sounds when VS Code is NOT focused. Sound calls you back when you step away — silent while you watch."
         },
         "noice.minDuration": {
           "type": "number",
