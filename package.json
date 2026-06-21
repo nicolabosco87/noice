@@ -12,6 +12,14 @@
       {
         "command": "noice.toggle",
         "title": "Noice: Toggle Sound Notifications"
+      },
+      {
+        "command": "noice.test",
+        "title": "Noice: Test Sound"
+      },
+      {
+        "command": "noice.showLog",
+        "title": "Noice: Show Diagnostic Log"
       }
     ],
     "configuration": {

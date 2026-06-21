@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const { execSync } = require('child_process');
+const { execSync, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -81,19 +81,24 @@ function playSound(soundName, volume) {
   const baseBuf = SOUNDS[soundName] || SOUNDS.default;
   const vol = Math.max(0, Math.min(1, volume ?? 0.5));
   const buf = vol === 0.5 ? baseBuf : rescaleWav(baseBuf, vol);
-  const tmpFile = path.join(os.tmpdir(), `noice_${soundName}.wav`);
+  const safeName = String(soundName).replace(/[^a-z0-9_-]/gi, '_');
+  const tmpFile = path.join(os.tmpdir(), `noice_${safeName}.wav`);
 
-  if (!fs.existsSync(tmpFile)) {
+  try {
     fs.writeFileSync(tmpFile, buf);
+    log('wav written:', tmpFile, '(' + buf.length + ' bytes, vol=' + vol + ')');
+  } catch (e) {
+    log('wav write failed:', e.message);
+    return;
   }
 
   const platform = process.platform;
   try {
     if (platform === 'win32') {
-      execSync(
-        `powershell -c "(New-Object Media.SoundPlayer '${tmpFile}').PlaySync()"`,
-        { timeout: 5000, windowsHide: true }
-      );
+      const cmd = `powershell -NoProfile -NonInteractive -Command "(New-Object Media.SoundPlayer '${tmpFile}').PlaySync()"`;
+      log('exec:', cmd);
+      execSync(cmd, { timeout: 10000, windowsHide: true, stdio: 'pipe' });
+      log('playback complete');
     } else if (platform === 'darwin') {
       execSync(`afplay "${tmpFile}"`, { timeout: 5000 });
     } else {
@@ -106,7 +111,7 @@ function playSound(soundName, volume) {
       }
     }
   } catch (e) {
-    // Silent fail — sound not critical
+    log('playback error:', e.message);
   }
 }
 
@@ -126,8 +131,21 @@ let terminalStartTimes = new Map();
 let windowFocused = vscode.window.state ? vscode.window.state.focused : true;
 let enabled = true;
 let refreshStatusBar;
+let outputChannel;
+
+function log(...args) {
+  const line = '[Noice] ' + args.map(a =>
+    typeof a === 'string' ? a : JSON.stringify(a)
+  ).join(' ');
+  console.log(line);
+  if (outputChannel) outputChannel.appendLine(line);
+}
 
 function activate(context) {
+  outputChannel = vscode.window.createOutputChannel('Noice');
+  context.subscriptions.push(outputChannel);
+  log('activated, focused=' + windowFocused);
+
   const config = vscode.workspace.getConfiguration('noice');
   enabled = config.get('enabled', true);
 
@@ -176,15 +194,32 @@ function activate(context) {
       );
       refreshStatusBar();
       vscode.window.setStatusBarMessage(
-        enabled ? '🔔 Noice enabled' : '🔕 Noice disabled',
+        enabled ? '🔔 Noice enabled' : '🔕 Noice muted',
         2000
       );
+      log('toggled, enabled=' + enabled);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noice.test', () => {
+      log('manual test triggered');
+      const volume = vscode.workspace.getConfiguration('noice').get('volume', 0.5);
+      playSound('default', volume);
+      vscode.window.showInformationMessage('🔔 Noice test sound (vol=' + volume + ') — check Output > Noice');
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noice.showLog', () => {
+      outputChannel.show();
     })
   );
 
   context.subscriptions.push(
     vscode.window.onDidChangeWindowState(state => {
       windowFocused = state.focused;
+      log('window focus changed:', windowFocused);
       refreshStatusBar();
     })
   );
