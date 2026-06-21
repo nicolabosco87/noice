@@ -1,9 +1,30 @@
 {
   "name": "noice",
   "displayName": "Noice 🔔",
-  "description": "Plays a sound when your terminal task finishes. Toggle on/off from status bar.",
+  "description": "Sound for terminal commands — only when you step away. Chime on success, low thud on failure. Click the status bar to mute.",
   "version": "1.0.0",
+  "publisher": "Qubasehq",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qubasehq/noice"
+  },
+  "bugs": {
+    "url": "https://github.com/qubasehq/noice/issues"
+  },
+  "homepage": "https://github.com/qubasehq/noice#readme",
+  "keywords": [
+    "terminal",
+    "sound",
+    "audio",
+    "notification",
+    "chime",
+    "alert",
+    "productivity",
+    "focus"
+  ],
   "engines": { "vscode": "^1.87.0" },
+  "icon": "icon.png",
   "categories": ["Other"],
   "activationEvents": ["onStartupFinished"],
   "main": "./src/extension.js",
@@ -28,7 +49,7 @@
         "noice.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable sound notifications when terminal tasks finish"
+          "description": "Master toggle for sound notifications."
         },
         "noice.onlyWhenUnfocused": {
           "type": "boolean",
@@ -38,7 +59,8 @@
         "noice.minDuration": {
           "type": "number",
           "default": 3,
-          "description": "Minimum seconds a command must run before playing sound"
+          "minimum": 0,
+          "description": "Minimum seconds a command must run before playing sound. Fast commands never trigger."
         },
         "noice.volume": {
           "type": "number",
@@ -51,7 +73,7 @@
           "type": "string",
           "default": "default",
           "enum": ["default", "chime", "pop", "glass"],
-          "description": "Sound to play on completion"
+          "description": "Sound played on successful command completion."
         },
         "noice.failureSound": {
           "type": "string",
@@ -62,7 +84,7 @@
         "noice.showNotification": {
           "type": "boolean",
           "default": true,
-          "description": "Show a notification message when command finishes"
+          "description": "Show a status bar message with elapsed time when command finishes."
         },
         "noice.dnd.enabled": {
           "type": "boolean",
