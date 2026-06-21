@@ -1,5 +1,8 @@
 # Noice 🔔
 
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=Qubasehq.noice)
+[![Install](https://img.shields.io/badge/Install-VS%20Code-0098FF)](vscode:extension/Qubasehq.noice)
+
 Sound for terminal commands — only when you step away.
 
 Plays a chime when a long-running terminal command finishes, a low thud when it fails. Silent while you watch; loud when you've walked away to grab a coffee. Sound calls you back.
@@ -45,3 +48,9 @@ You're focused on code. You run a build, switch to your browser, forget about it
 ## License
 
 MIT © Qubasehq
+
+## Links
+
+- Marketplace: https://marketplace.visualstudio.com/items?itemName=Qubasehq.noice
+- Repository: https://github.com/qubasehq/noice
+- Issues: https://github.com/qubasehq/noice/issues
