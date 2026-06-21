@@ -38,6 +38,12 @@
           "enum": ["default", "chime", "pop", "glass"],
           "description": "Sound to play on completion"
         },
+        "noice.failureSound": {
+          "type": "string",
+          "default": "thud",
+          "enum": ["thud", "pop", "default", "glass"],
+          "description": "Sound played when command fails (non-zero exit)."
+        },
         "noice.showNotification": {
           "type": "boolean",
           "default": true,

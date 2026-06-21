@@ -11,7 +11,41 @@ const SOUNDS = {
   chime:   generateBeepWav(1047, 0.3),  // C6 note
   pop:     generateBeepWav(660, 0.08),  // E5 note
   glass:   generateBeepWav(1318, 0.25), // E6 note
+  thud:    generateThudWav(),           // Low body + sub + noise click
 };
+
+function generateThudWav() {
+  const sampleRate = 44100;
+  const duration = 0.3;
+  const numSamples = Math.floor(sampleRate * duration);
+  const buffer = Buffer.alloc(44 + numSamples * 2);
+
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + numSamples * 2, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(numSamples * 2, 40);
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const env = Math.exp(-t * 10);
+    const body = Math.sin(2 * Math.PI * 80 * t);
+    const sub = Math.sin(2 * Math.PI * 50 * t) * 0.6;
+    const noise = i < 500 ? (Math.random() * 2 - 1) * (1 - i / 500) * 0.25 : 0;
+    const s = (body * 0.6 + sub * 0.4 + noise) * env * 32767 * 0.7;
+    buffer.writeInt16LE(Math.round(s), 44 + i * 2);
+  }
+
+  return buffer;
+}
 
 function generateBeepWav(freq, duration) {
   const sampleRate = 44100;
@@ -147,7 +181,11 @@ function activate(context) {
       const exitCode = event.exitCode;
       const success = exitCode === 0 || exitCode === undefined;
 
-      playSound(success ? sound : 'pop');
+      const failureSound = vscode.workspace
+        .getConfiguration('noice')
+        .get('failureSound', 'thud');
+
+      playSound(success ? sound : failureSound);
 
       const showNotif = vscode.workspace
         .getConfiguration('noice')
@@ -170,7 +208,7 @@ function activate(context) {
 }
 
 function updateStatusBar() {
-  statusBarItem.text = enabled ? '$(bell) Noice' : '$(bell-slash) Noice';
+  statusBarItem.text = enabled ? '🔔 Noice' : '🔕 Noice';
   statusBarItem.tooltip = enabled
     ? 'Noice: Sound ON — click to disable'
     : 'Noice: Sound OFF — click to enable';
