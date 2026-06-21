@@ -111,6 +111,7 @@ let statusBarItem;
 let terminalStartTimes = new Map();
 let windowFocused = vscode.window.state ? vscode.window.state.focused : true;
 let enabled = true;
+let refreshStatusBar;
 
 function activate(context) {
   const config = vscode.workspace.getConfiguration('noice');
@@ -121,9 +122,37 @@ function activate(context) {
     100
   );
   statusBarItem.command = 'noice.toggle';
-  updateStatusBar();
-  statusBarItem.show();
-  context.subscriptions.push(statusBarItem);
+
+  refreshStatusBar = () => {
+    statusBarItem.text = enabled ? '🔔 Noice' : '🔕 Noice';
+
+    const cfg = vscode.workspace.getConfiguration('noice');
+    const onlyUnfocused = cfg.get('onlyWhenUnfocused', true);
+    const dndEnabled = cfg.get('dnd.enabled', false);
+    const dndStart = cfg.get('dnd.start', '09:00');
+    const dndEnd = cfg.get('dnd.end', '18:00');
+
+    const dndActive = dndEnabled && isInDnd(new Date(), dndStart, dndEnd);
+    const willSilence = onlyUnfocused && windowFocused;
+
+    const reasons = [];
+    if (dndActive) reasons.push(`DND ${dndStart}–${dndEnd}`);
+    if (willSilence) reasons.push('window focused');
+
+    if (!enabled) {
+      statusBarItem.color = '#666666';
+      statusBarItem.tooltip = 'Noice: OFF — click to enable';
+    } else if (reasons.length > 0) {
+      statusBarItem.color = '#888888';
+      statusBarItem.tooltip = `Noice: ON, currently muted (${reasons.join(', ')}) — click to mute`;
+    } else {
+      statusBarItem.color = '#4EC9B0';
+      statusBarItem.tooltip = 'Noice: ON — click to mute';
+    }
+  };
+
+  const refreshInterval = setInterval(refreshStatusBar, 30000);
+  context.subscriptions.push({ dispose: () => clearInterval(refreshInterval) });
 
   context.subscriptions.push(
     vscode.commands.registerCommand('noice.toggle', () => {
@@ -131,7 +160,7 @@ function activate(context) {
       vscode.workspace.getConfiguration('noice').update(
         'enabled', enabled, vscode.ConfigurationTarget.Global
       );
-      updateStatusBar();
+      refreshStatusBar();
       vscode.window.setStatusBarMessage(
         enabled ? '🔔 Noice enabled' : '🔕 Noice disabled',
         2000
@@ -142,6 +171,18 @@ function activate(context) {
   context.subscriptions.push(
     vscode.window.onDidChangeWindowState(state => {
       windowFocused = state.focused;
+      refreshStatusBar();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('noice.enabled')) {
+        enabled = vscode.workspace.getConfiguration('noice').get('enabled', true);
+      }
+      if (e.affectsConfiguration('noice')) {
+        refreshStatusBar();
+      }
     })
   );
 
@@ -173,6 +214,16 @@ function activate(context) {
         .get('onlyWhenUnfocused', true);
 
       if (onlyWhenUnfocused && windowFocused) return;
+
+      const dndEnabled = vscode.workspace
+        .getConfiguration('noice')
+        .get('dnd.enabled', false);
+
+      if (dndEnabled) {
+        const start = vscode.workspace.getConfiguration('noice').get('dnd.start', '09:00');
+        const end = vscode.workspace.getConfiguration('noice').get('dnd.end', '18:00');
+        if (isInDnd(new Date(), start, end)) return;
+      }
 
       const sound = vscode.workspace
         .getConfiguration('noice')

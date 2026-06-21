@@ -48,6 +48,23 @@
           "type": "boolean",
           "default": true,
           "description": "Show a notification message when command finishes"
+        },
+        "noice.dnd.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Do Not Disturb hours. Sound is silent during this window."
+        },
+        "noice.dnd.start": {
+          "type": "string",
+          "default": "09:00",
+          "pattern": "^([01]?\\d|2[0-3]):[0-5]\\d$",
+          "description": "DND start time (HH:MM, 24h). Mute at/after this time."
+        },
+        "noice.dnd.end": {
+          "type": "string",
+          "default": "18:00",
+          "pattern": "^([01]?\\d|2[0-3]):[0-5]\\d$",
+          "description": "DND end time (HH:MM, 24h). Resume sound at this time. Wraps midnight if earlier than start."
         }
       }
     }
