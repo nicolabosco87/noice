@@ -1,0 +1,4 @@
+node_modules/
+*.vsix
+logo.png
+.DS_Store
