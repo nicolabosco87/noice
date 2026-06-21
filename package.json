@@ -1,0 +1,45 @@
+{
+  "name": "noice",
+  "displayName": "Noice 🔔",
+  "description": "Plays a sound when your terminal task finishes. Toggle on/off from status bar.",
+  "version": "1.0.0",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "noice.toggle",
+        "title": "Noice: Toggle Sound Notifications"
+      }
+    ],
+    "configuration": {
+      "title": "Noice",
+      "properties": {
+        "noice.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable sound notifications when terminal tasks finish"
+        },
+        "noice.minDuration": {
+          "type": "number",
+          "default": 3,
+          "description": "Minimum seconds a command must run before playing sound"
+        },
+        "noice.sound": {
+          "type": "string",
+          "default": "default",
+          "enum": ["default", "chime", "pop", "glass"],
+          "description": "Sound to play on completion"
+        },
+        "noice.showNotification": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notification message when command finishes"
+        }
+      }
+    }
+  },
+  "dependencies": {}
+}
