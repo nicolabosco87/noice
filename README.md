@@ -17,6 +17,7 @@ You're focused on code. You run a build, switch to your browser, forget about it
 - **Mute toggle** — click `🔔 Noice` in the status bar to toggle on/off.
 - **Min duration** — commands under N seconds never trigger (default 3s). Fast commands don't beep.
 - **Failure sound** — success plays a chime, failure plays a low thud. You know without looking.
+- **Custom MP3** — point success or failure at your own MP3 (or WAV). Empty path keeps the built-in tone.
 - **Do Not Disturb hours** — set a window (e.g. 09:00–18:00) where noice is silent. After hours, it beeps when you step away.
 
 ## Settings
@@ -29,6 +30,8 @@ You're focused on code. You run a build, switch to your browser, forget about it
 | `noice.volume` | `0.5` | Per-extension volume (0–1) |
 | `noice.sound` | `default` | Success sound: `default`, `chime`, `pop`, `glass` |
 | `noice.failureSound` | `thud` | Failure sound: `thud`, `pop`, `default`, `glass` |
+| `noice.customSound` | *(empty)* | Absolute path to an MP3 (or WAV) played on success. Overrides `noice.sound` |
+| `noice.customFailureSound` | *(empty)* | Absolute path to an MP3 (or WAV) played on failure. Overrides `noice.failureSound` |
 | `noice.showNotification` | `true` | Status bar message with elapsed time |
 | `noice.dnd.enabled` | `false` | Enable DND hours |
 | `noice.dnd.start` | `09:00` | DND start (HH:MM) |
@@ -37,7 +40,7 @@ You're focused on code. You run a build, switch to your browser, forget about it
 ## Commands
 
 - **Noice: Toggle Sound Notifications** — flip master switch
-- **Noice: Test Sound** — play chime immediately, useful for diagnosing audio
+- **Noice: Test Sound** — play the success sound immediately (custom MP3 when `noice.customSound` is set), useful for diagnosing audio
 - **Noice: Show Diagnostic Log** — open the Noice output channel for event tracing
 
 ## Requirements

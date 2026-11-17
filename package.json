@@ -81,6 +81,16 @@
           "enum": ["thud", "pop", "default", "glass"],
           "description": "Sound played when command fails (non-zero exit)."
         },
+        "noice.customSound": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a custom MP3 played on success. WAV works too. Leave empty to use noice.sound. Example: C:\\sounds\\done.mp3"
+        },
+        "noice.customFailureSound": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a custom MP3 played on failure. WAV works too. Leave empty to use noice.failureSound. Example: C:\\sounds\\fail.mp3"
+        },
         "noice.showNotification": {
           "type": "boolean",
           "default": true,

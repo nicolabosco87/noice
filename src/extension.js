@@ -77,6 +77,187 @@ function generateBeepWav(freq, duration) {
   return buffer;
 }
 
+function resolveSoundPath(filePath) {
+  let resolved = String(filePath).trim();
+  if (resolved.startsWith('~')) {
+    resolved = path.join(os.homedir(), resolved.slice(1).replace(/^[\\/]/, ''));
+  }
+  return path.resolve(resolved);
+}
+
+// Plays a user-supplied audio file. Returns false when no path is set or the
+// file is missing so the caller can fall back to a built-in tone.
+function playCustomSound(filePath, volume) {
+  const raw = typeof filePath === 'string' ? filePath.trim() : '';
+  if (!raw) return false;
+
+  const resolved = resolveSoundPath(raw);
+  if (!fs.existsSync(resolved)) {
+    log('custom sound not found:', resolved);
+    return false;
+  }
+
+  const vol = Math.max(0, Math.min(1, volume ?? 0.5));
+  log('playing custom sound:', resolved, 'vol=' + vol);
+
+  const platform = process.platform;
+  try {
+    if (platform === 'win32') {
+      playWindowsFile(resolved, vol);
+    } else if (platform === 'darwin') {
+      spawn('afplay', ['-v', String(vol), resolved], { stdio: 'ignore' })
+        .on('error', (err) => log('afplay error:', err.message));
+    } else {
+      playLinuxFile(resolved, vol);
+    }
+  } catch (e) {
+    log('custom sound error:', e.message);
+    return false;
+  }
+  return true;
+}
+
+function playWindowsFile(filePath, volume) {
+  const alias = 'noice' + Date.now();
+  const child = spawn('powershell.exe', [
+    '-STA',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', '-',
+  ], {
+    windowsHide: true,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: Object.assign({}, process.env, {
+      NOICE_SOUND_FILE: filePath,
+      NOICE_SOUND_VOLUME: String(volume),
+      NOICE_SOUND_ALIAS: alias,
+    }),
+  });
+
+  child.stdin.write(WINDOWS_PLAY_SCRIPT);
+  child.stdin.end();
+  child.stdout.on('data', (data) => log('custom sound:', String(data).trim()));
+  child.stderr.on('data', (data) => log('custom sound error:', String(data).trim()));
+  child.on('error', (err) => log('custom sound process error:', err.message));
+  child.on('exit', (code) => log('custom sound exit:', code));
+}
+
+// MCI plays MP3 and WAV with volume. MediaPlayer is the fallback when MCI
+// cannot open the file. The child process stays alive until playback ends.
+const WINDOWS_PLAY_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+$path = $env:NOICE_SOUND_FILE
+$alias = $env:NOICE_SOUND_ALIAS
+$gain = 0.5
+if ($env:NOICE_SOUND_VOLUME) { $gain = [double]$env:NOICE_SOUND_VOLUME }
+$gain = [Math]::Max(0, [Math]::Min(1, $gain))
+$mciVol = [int]([Math]::Round($gain * 1000))
+if ([string]::IsNullOrWhiteSpace($path)) { throw 'Noice: sound path is empty' }
+if (-not (Test-Path -LiteralPath $path)) { throw "Noice: sound file not found: $path" }
+$quoted = $path.Replace('"', '')
+
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public class NoiceMci {
+  [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
+  public static extern int mciSendString(string command, StringBuilder buffer, int bufferSize, IntPtr hwndCallback);
+}
+"@
+
+function Send-Mci([string]$command) {
+  $buffer = New-Object System.Text.StringBuilder 512
+  return [NoiceMci]::mciSendString($command, $buffer, $buffer.Capacity, [IntPtr]::Zero)
+}
+
+$open = Send-Mci ('open "' + $quoted + '" alias ' + $alias)
+if ($open -ne 0) {
+  $open = Send-Mci ('open "' + $quoted + '" type mpegvideo alias ' + $alias)
+}
+
+if ($open -eq 0) {
+  try {
+    [void](Send-Mci ('setaudio ' + $alias + ' volume to ' + $mciVol))
+    $play = Send-Mci ('play ' + $alias + ' wait')
+    if ($play -ne 0) { throw "mci play failed ($play)" }
+  } finally {
+    [void](Send-Mci ('close ' + $alias))
+  }
+  Write-Output 'playback complete (mci)'
+  exit 0
+}
+
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
+$player = New-Object System.Windows.Media.MediaPlayer
+$script:done = $false
+$script:fail = $null
+$player.add_MediaEnded({ $script:done = $true })
+$player.add_MediaFailed({
+  param($sender, $eventArgs)
+  if ($eventArgs.ErrorException) { $script:fail = $eventArgs.ErrorException.Message } else { $script:fail = 'media failed' }
+  $script:done = $true
+})
+$player.Volume = $gain
+$player.Open((New-Object System.Uri $path))
+$player.Play()
+$script:frame = New-Object System.Windows.Threading.DispatcherFrame
+$script:started = Get-Date
+$timer = New-Object System.Windows.Threading.DispatcherTimer
+$timer.Interval = [TimeSpan]::FromMilliseconds(100)
+$timer.add_Tick({
+  $elapsed = (New-TimeSpan -Start $script:started -End (Get-Date)).TotalSeconds
+  if ($script:done -or $elapsed -gt 600) { $script:frame.Continue = $false }
+})
+$timer.Start()
+try {
+  [System.Windows.Threading.Dispatcher]::PushFrame($script:frame)
+} finally {
+  $timer.Stop()
+  $player.Stop()
+  $player.Close()
+}
+if ($script:fail) { throw $script:fail }
+Write-Output 'playback complete (mediaplayer)'
+`;
+
+function commandExists(cmd) {
+  try {
+    execSync('command -v ' + cmd, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function playLinuxFile(filePath, volume) {
+  const percent = String(Math.round(volume * 100));
+  const ext = path.extname(filePath).toLowerCase();
+  const candidates = [
+    { cmd: 'ffplay', args: ['-nodisp', '-autoexit', '-loglevel', 'quiet', '-volume', percent, filePath] },
+    { cmd: 'mpv', args: ['--really-quiet', '--no-video', '--volume=' + percent, filePath] },
+    { cmd: 'mpg123', args: ['-q', '-f', String(Math.round(volume * 32768)), filePath] },
+    { cmd: 'cvlc', args: ['--play-and-exit', '--intf', 'dummy', '--volume=' + String(Math.round(volume * 256)), filePath] },
+  ];
+  if (ext === '.wav' || ext === '.aiff') {
+    candidates.push(
+      { cmd: 'paplay', args: ['--volume=' + String(Math.round(volume * 65536)), filePath] },
+      { cmd: 'aplay', args: [filePath] }
+    );
+  }
+
+  for (const candidate of candidates) {
+    if (!commandExists(candidate.cmd)) continue;
+    log('linux player:', candidate.cmd);
+    const child = spawn(candidate.cmd, candidate.args, { stdio: 'ignore' });
+    child.on('error', (err) => log(candidate.cmd + ' error:', err.message));
+    return;
+  }
+  log('no player found for custom sound (tried ffplay, mpv, mpg123, cvlc)');
+}
+
 function playSound(soundName, volume) {
   const baseBuf = SOUNDS[soundName] || SOUNDS.default;
   const vol = Math.max(0, Math.min(1, volume ?? 0.5));
@@ -205,7 +386,10 @@ function activate(context) {
     vscode.commands.registerCommand('noice.test', () => {
       log('manual test triggered');
       const volume = vscode.workspace.getConfiguration('noice').get('volume', 0.5);
-      playSound('default', volume);
+      const custom = vscode.workspace.getConfiguration('noice').get('customSound', '');
+      if (!playCustomSound(custom, volume)) {
+        playSound('default', volume);
+      }
       vscode.window.showInformationMessage('🔔 Noice test sound (vol=' + volume + ') — check Output > Noice');
     })
   );
@@ -289,7 +473,18 @@ function activate(context) {
         .getConfiguration('noice')
         .get('volume', 0.5);
 
-      playSound(success ? sound : failureSound, volume);
+      const customSound = vscode.workspace
+        .getConfiguration('noice')
+        .get('customSound', '');
+
+      const customFailureSound = vscode.workspace
+        .getConfiguration('noice')
+        .get('customFailureSound', '');
+
+      const customPath = success ? customSound : customFailureSound;
+      if (!playCustomSound(customPath, volume)) {
+        playSound(success ? sound : failureSound, volume);
+      }
 
       const showNotif = vscode.workspace
         .getConfiguration('noice')
